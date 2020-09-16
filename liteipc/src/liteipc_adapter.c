@@ -752,7 +752,7 @@ static void TimeoutHandler(int signo, void *arg)
         .handle = g_ipcCallbackCb.handleId,
         .token = node->token
     };
-    UnRegisteIpcCallback(sid);
+    UnregisterIpcCallback(sid);
 }
 
 int32_t StartIpcCbTimer(uint32_t mode, uint32_t timeoutMs, AnonymousApi* node, timer_t* timerId)
@@ -795,7 +795,7 @@ int32_t StartIpcCbTimer(uint32_t mode, uint32_t timeoutMs, AnonymousApi* node, t
 }
 #endif
 
-int32_t RegisteIpcCallback(IpcMsgHandler func, uint32_t mode, uint32_t timeoutMs, SvcIdentity* sid, void* arg)
+int32_t RegisterIpcCallback(IpcMsgHandler func, uint32_t mode, uint32_t timeoutMs, SvcIdentity* sid, void* arg)
 {
 #if (ENABLE_IPC_CB_TIMER == YES)
     timer_t timerId = NULL;
@@ -851,7 +851,7 @@ ERROR:
     return ret;
 }
 
-int32_t UnRegisteIpcCallback(SvcIdentity sid)
+int32_t UnregisterIpcCallback(SvcIdentity sid)
 {
     if (pthread_mutex_lock(&g_ipcCallbackCb.mutex) != 0) {
         LOG_ERRNO("Get callback mutex failed.");
@@ -894,7 +894,7 @@ static inline uint32_t SetDeathHandlerPair(Testament* node, uint32_t index, IpcM
     return index;
 }
 
-int32_t RegisteDeathCallback(const IpcContext* context, SvcIdentity sid, IpcMsgHandler func, void* arg, uint32_t* cbId)
+int32_t RegisterDeathCallback(const IpcContext* context, SvcIdentity sid, IpcMsgHandler func, void* arg, uint32_t* cbId)
 {
     int i;
     int ret = LITEIPC_OK;
@@ -952,7 +952,7 @@ UNLOCK_RETURN:
     return ret;
 }
 
-int32_t UnRegisteDeathCallback(SvcIdentity sid, uint32_t cbId)
+int32_t UnregisterDeathCallback(SvcIdentity sid, uint32_t cbId)
 {
     Testament* node = NULL;
     Testament* next = NULL;
