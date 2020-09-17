@@ -198,6 +198,18 @@ IpcContext* OpenLiteIpc(size_t mmapSize)
     return (IpcContext*)(intptr_t)(GetLiteIpcContext(mmapSize, NULL) == LITEIPC_OK);
 }
 
+void ResetLiteIpc()
+{
+    if (g_context != NULL) {
+        free(g_context);
+        g_context = NULL;
+    }
+    pthread_mutex_init(&g_ipcContextMutex, NULL);
+    g_ipcCallbackCb.handleId = -1;
+    g_ipcCallbackCb.threadWorking = false;
+    pthread_mutex_init(&g_ipcCallbackCb.mutex, NULL);
+}
+
 void CloseLiteIpc(IpcContext* context)
 {
 }
