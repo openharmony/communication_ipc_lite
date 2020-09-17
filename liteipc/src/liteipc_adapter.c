@@ -418,19 +418,20 @@ int32_t Transact(const IpcContext* con, SvcIdentity sid, uint32_t code, IpcIo* d
 
     if ((flag > LITEIPC_FLAG_ONEWAY) || ((flag == LITEIPC_FLAG_DEFAULT) && (ptr == NULL))) {
         LOG(ERROR, "Invalid parameter, null pointer.");
-        return LITEIPC_EINVAL;
+        ret = LITEIPC_EINVAL;
+        goto TRAN_EXIT;
     }
 
     ret = CheckIpcIo(data);
     if (ret != LITEIPC_OK) {
         LOG(ERROR, "CheckIpcIo failed.");
-        return ret;
+        goto TRAN_EXIT;
     }
 
     ret = GetLiteIpcContext(0, &context);
     if (ret != LITEIPC_OK) {
         LOG(ERROR, "GetLiteIpcContext failed.");
-        return ret;
+        goto TRAN_EXIT;
     }
 
     IpcMsg msg = {
@@ -446,10 +447,10 @@ int32_t Transact(const IpcContext* con, SvcIdentity sid, uint32_t code, IpcIo* d
     IpcContent content = {.outMsg = &msg};
     content.flag = (flag == LITEIPC_FLAG_ONEWAY) ? SEND : (SEND | RECV);
     ret = ioctl(context.fd, IPC_SEND_RECV_MSG, &content);
-    IpcIoFreeDataBuff(data);
     if (ret < 0) {
         LOG_ERRNO("Liteipc driver ioctl failed.");
-        return (errno == ENOENT) ? LITEIPC_ENOENT : LITEIPC_EBADF;
+        ret = (errno == ENOENT) ? LITEIPC_ENOENT : LITEIPC_EBADF;
+        goto TRAN_EXIT;
     }
 
     if (flag != LITEIPC_FLAG_ONEWAY) {
@@ -458,7 +459,10 @@ int32_t Transact(const IpcContext* con, SvcIdentity sid, uint32_t code, IpcIo* d
         }
         *ptr = (uintptr_t)content.inMsg;
     }
-    return LITEIPC_OK;
+    ret = LITEIPC_OK;
+TRAN_EXIT:
+    IpcIoFreeDataBuff(data);
+    return ret;
 }
 
 int32_t SendReply(const IpcContext* con, void* ipcMsg, IpcIo* reply)
@@ -468,19 +472,20 @@ int32_t SendReply(const IpcContext* con, void* ipcMsg, IpcIo* reply)
 
     if (ipcMsg == NULL) {
         LOG(ERROR, "Invalid parameter, null pointer.");
-        return LITEIPC_EINVAL;
+        ret = LITEIPC_EINVAL;
+        goto SEND_EXIT;
     }
 
     ret = CheckIpcIo(reply);
     if (ret != LITEIPC_OK) {
         LOG(ERROR, "CheckIpcIo failed.");
-        return ret;
+        goto SEND_EXIT;
     }
 
     ret = GetLiteIpcContext(0, &context);
     if (ret != LITEIPC_OK) {
         LOG(ERROR, "GetLiteIpcContext failed.");
-        return ret;
+        goto SEND_EXIT;
     }
 
     IpcMsg* in = (IpcMsg*)ipcMsg;
@@ -502,8 +507,12 @@ int32_t SendReply(const IpcContext* con, void* ipcMsg, IpcIo* reply)
     };
 
     ret = ioctl(context.fd, IPC_SEND_RECV_MSG, &content);
+    if (ret < 0) {
+        LOG_ERRNO("Liteipc driver ioctl failed.");
+        ret = LITEIPC_EBADF;
+    }
+SEND_EXIT:
     IpcIoFreeDataBuff(reply);
-    RETURN_IF_IPC_IOCTL_FAILED(LITEIPC_EBADF);
 
     return ret;
 }
