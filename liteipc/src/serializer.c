@@ -15,9 +15,10 @@
 
 #include "serializer.h"
 #include "securec.h"
-#include "stdlib.h"
-#include "string.h"
 #include "liteipc.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef __cplusplus
 #if __cplusplus
