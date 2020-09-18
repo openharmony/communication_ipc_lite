@@ -180,6 +180,7 @@ static int32_t GetLiteIpcContext(size_t mmapSize, IpcContext* context)
     pthread_mutex_unlock(&g_ipcContextMutex);
     return LITEIPC_OK;
 
+
 MALLOC_ERR:
     munmap(addr, mmapSize);
 MMAP_ERR:
@@ -460,6 +461,7 @@ int32_t Transact(const IpcContext* con, SvcIdentity sid, uint32_t code, IpcIo* d
         *ptr = (uintptr_t)content.inMsg;
     }
     ret = LITEIPC_OK;
+
 TRAN_EXIT:
     IpcIoFreeDataBuff(data);
     return ret;
@@ -511,9 +513,9 @@ int32_t SendReply(const IpcContext* con, void* ipcMsg, IpcIo* reply)
         LOG_ERRNO("Liteipc driver ioctl failed.");
         ret = LITEIPC_EBADF;
     }
+
 SEND_EXIT:
     IpcIoFreeDataBuff(reply);
-
     return ret;
 }
 
@@ -726,6 +728,7 @@ static void* CallbackDispatch(void* arg)
             continue;
         }
         LOG_ERRNO("Create handle thread failed.");
+
 ERROR_MSG:
         free(tArg);
 ERROR_MALLOC:
@@ -867,6 +870,7 @@ int32_t RegisterIpcCallback(IpcMsgHandler func, uint32_t mode, uint32_t timeoutM
     UtilsListAdd(&g_ipcCallbackCb.apis, &node->list);
     sid->token = node->token;
     sid->handle = g_ipcCallbackCb.handleId;
+
 ERROR:
     pthread_mutex_unlock(&g_ipcCallbackCb.mutex);
     return ret;
