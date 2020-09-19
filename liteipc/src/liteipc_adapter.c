@@ -31,12 +31,6 @@
 #include "utils_list.h"
 #include "securec.h"
 
-#ifdef __cplusplus
-#if __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-#endif /* __cplusplus */
-
 #define ENABLE_IPC_CB_TIMER YES
 
 static IpcContext* g_context = NULL;
@@ -1029,9 +1023,3 @@ static void RemoveDeathCallback(uint32_t handle)
     }
     pthread_mutex_unlock(&g_ipcCallbackCb.mutex);
 }
-
-#ifdef __cplusplus
-#if __cplusplus
-}
-#endif /* __cplusplus */
-#endif /* __cplusplus */
