@@ -733,6 +733,7 @@ ERROR_MALLOC:
         }
     }
     g_ipcCallbackCb.threadWorking = false;
+    return NULL;
 }
 
 static int32_t StartCallbackDispatch()
