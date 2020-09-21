@@ -174,7 +174,6 @@ static int32_t GetLiteIpcContext(size_t mmapSize, IpcContext* context)
     pthread_mutex_unlock(&g_ipcContextMutex);
     return LITEIPC_OK;
 
-
 MALLOC_ERR:
     munmap(addr, mmapSize);
 MMAP_ERR:

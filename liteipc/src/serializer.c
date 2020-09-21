@@ -24,8 +24,8 @@
 #define MAX_OBJ_NUM 32UL
 #define MAX_DATA_BUFF_SIZE 65536UL
 
-#define IPC_IO_INITIALIZED 0x01 /* need to  */
-#define IPC_IO_OVERFLOW    0x02 /* run out of space */
+#define IPC_IO_INITIALIZED 0x01 /* ipc flag indicates whether io is initialized */
+#define IPC_IO_OVERFLOW    0x02 /* ipc flag indicates whether io is running out of space */
 
 #define ALIGN_SZ 4
 #define IPC_IO_ALIGN(sz) (((sz) + ALIGN_SZ - 1) & (~(ALIGN_SZ - 1)))
@@ -281,7 +281,6 @@ void IpcIoPushFd(IpcIo* io, uint32_t fd)
     }
 }
 
-static SpecialObj* IoPopSpecObj(IpcIo* io);
 void IpcIoPushSvc(IpcIo* io, const SvcIdentity* svc)
 {
     if (io == NULL) {
@@ -298,6 +297,26 @@ void IpcIoPushSvc(IpcIo* io, const SvcIdentity* svc)
         ptr->content.svc.handle = svc->handle;
         ptr->content.svc.token = svc->token;
     }
+}
+
+static SpecialObj* IoPopSpecObj(IpcIo* io)
+{
+    IPC_IO_RETURN_IF_FAIL(io != NULL);
+    IPC_IO_RETURN_IF_FAIL(io->offsetsCur != NULL);
+    if ((io->offsetsLeft == 0) || (*(io->offsetsCur) != io->bufferCur - io->bufferBase)) {
+        goto ERROR;
+    }
+
+    SpecialObj* obj = IoPop(io, sizeof(SpecialObj));
+    if (obj != NULL) {
+        io->offsetsCur++;
+        io->offsetsLeft--;
+        return obj;
+    }
+
+ERROR:
+    io->flag |= IPC_IO_OVERFLOW;
+    return NULL;
 }
 
 SvcIdentity* IpcIoPopSvc(IpcIo* io)
@@ -375,26 +394,6 @@ static void* IoPop(IpcIo* io, size_t size)
         io->bufferLeft -= size;
         return ptr;
     }
-}
-
-static SpecialObj* IoPopSpecObj(IpcIo* io)
-{
-    IPC_IO_RETURN_IF_FAIL(io != NULL);
-    IPC_IO_RETURN_IF_FAIL(io->offsetsCur != NULL);
-    if ((io->offsetsLeft == 0) || (*(io->offsetsCur) != io->bufferCur - io->bufferBase)) {
-        goto ERROR;
-    }
-
-    SpecialObj* obj = IoPop(io, sizeof(SpecialObj));
-    if (obj != NULL) {
-        io->offsetsCur++;
-        io->offsetsLeft--;
-        return obj;
-    }
-
-ERROR:
-    io->flag |= IPC_IO_OVERFLOW;
-    return NULL;
 }
 
 char IpcIoPopChar(IpcIo* io)
