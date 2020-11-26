@@ -25,7 +25,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <threads.h>
+#include <sched.h>
 #include <time.h>
 #include "liteipc.h"
 #include "utils_list.h"
@@ -750,14 +750,14 @@ static int32_t StartCallbackDispatch()
 
     struct timespec spark, now;
     clock_gettime(CLOCK_REALTIME, &spark);
-    thrd_yield();
+    sched_yield();
     while (!g_ipcCallbackCb.threadWorking) {
         clock_gettime(CLOCK_REALTIME, &now);
         if (now.tv_sec - spark.tv_sec > 1) {
             LOG(ERROR, "Wait callback thread starting timeout.");
             return LITEIPC_EINTNL;
         }
-        thrd_yield();
+        sched_yield();
     }
     return LITEIPC_OK;
 }
