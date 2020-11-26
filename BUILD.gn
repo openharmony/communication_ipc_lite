@@ -14,7 +14,7 @@
 import("//build/lite/config/component/lite_component.gni")
 import("//build/lite/ndk/ndk.gni")
 
-if (ohos_kernel_type == "liteos_a") {
+if (ohos_kernel_type == "liteos_a" || ohos_kernel_type == "linux") {
     shared_library("liteipc_adapter") {
         sources = [
             "liteipc/src/liteipc_adapter.c",
