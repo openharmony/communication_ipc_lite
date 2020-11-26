@@ -22,6 +22,7 @@ if (ohos_kernel_type == "liteos_a" || ohos_kernel_type == "linux") {
         ]
         cflags = ["-fPIC"]
         cflags += ["-Wall"]
+        ldflags = ["-lrt"]
         cflags_cc = cflags
         public_configs = [":liteipc_external_library_config"]
         include_dirs = [
