@@ -25,7 +25,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <threads.h>
+#include <sched.h>
 #include <time.h>
 #include "liteipc.h"
 #include "utils_list.h"
@@ -154,13 +154,13 @@ static int32_t GetLiteIpcContext(size_t mmapSize, IpcContext* context)
         }
         addr = mmap(NULL, mmapSize, PROT_READ, MAP_PRIVATE, fd, 0);
         if (addr == MAP_FAILED) {
-            LOG_ERRNO("Mmap failed.(size=%u)", mmapSize);
+            LOG_ERRNO("Mmap failed.(size=%zu)", mmapSize);
             goto MMAP_ERR;
         }
 
         con = malloc(sizeof(IpcContext));
         if (con == NULL) {
-            LOG(ERROR, "Malloc failed.(size=%u)", sizeof(IpcContext));
+            LOG(ERROR, "Malloc failed.(size=%zu)", sizeof(IpcContext));
             goto MALLOC_ERR;
         }
         con->fd = fd;
@@ -750,14 +750,14 @@ static int32_t StartCallbackDispatch()
 
     struct timespec spark, now;
     clock_gettime(CLOCK_REALTIME, &spark);
-    thrd_yield();
+    sched_yield();
     while (!g_ipcCallbackCb.threadWorking) {
         clock_gettime(CLOCK_REALTIME, &now);
         if (now.tv_sec - spark.tv_sec > 1) {
             LOG(ERROR, "Wait callback thread starting timeout.");
             return LITEIPC_EINTNL;
         }
-        thrd_yield();
+        sched_yield();
     }
     return LITEIPC_OK;
 }
@@ -837,7 +837,7 @@ int32_t RegisterIpcCallback(IpcMsgHandler func, uint32_t mode, uint32_t timeoutM
 
     AnonymousApi* node = (AnonymousApi*)malloc(sizeof(AnonymousApi));
     if (node == NULL) {
-        LOG(ERROR, "Malloc failed.(size=%u)", sizeof(AnonymousApi));
+        LOG(ERROR, "Malloc failed.(size=%zu)", sizeof(AnonymousApi));
         ret = LITEIPC_EINTNL;
         goto ERROR;
     }
@@ -956,7 +956,7 @@ int32_t RegisterDeathCallback(const IpcContext* context, SvcIdentity sid, IpcMsg
     }
     node = (Testament*)malloc(sizeof(Testament));
     if (node == NULL) {
-        LOG(ERROR, "Malloc failed.(size=%u)", sizeof(Testament));
+        LOG(ERROR, "Malloc failed.(size=%zu)", sizeof(Testament));
         ret = LITEIPC_ENOMEM;
         goto UNLOCK_RETURN;
     }
