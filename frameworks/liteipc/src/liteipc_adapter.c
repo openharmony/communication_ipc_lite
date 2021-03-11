@@ -14,10 +14,12 @@
  */
 
 #include "liteipc_adapter.h"
+#include "ipc_log.h"
 
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -25,7 +27,6 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <sched.h>
 #include <time.h>
 #include "liteipc.h"
 #include "utils_list.h"
@@ -85,19 +86,17 @@ static IpcCallckCb g_ipcCallbackCb = {
 
 static void Perror(int msgErrno);
 
-#define LOG(level, format, ...)                      \
-    do {                                             \
-        printf("[%s : %d]", __FUNCTION__, __LINE__); \
-        printf(format, ##__VA_ARGS__);               \
-        printf("\n");                                \
+#define LOG(level, format, ...)                         \
+    do {                                                \
+        IPC_LOG(level, "[%s : %d]" format,              \
+            __FUNCTION__, __LINE__, ##__VA_ARGS__);     \
     } while (0)
 
-#define LOG_ERRNO(format, ...)                       \
-    do {                                             \
-        printf("[%s : %d]", __FUNCTION__, __LINE__); \
-        Perror(errno);                               \
-        printf(format, ##__VA_ARGS__);               \
-        printf("\n");                                \
+#define LOG_ERRNO(format, ...)                          \
+    do {                                                \
+        IPC_LOG_ERROR("[%s : %d]" format,               \
+            __FUNCTION__, __LINE__, ##__VA_ARGS__);     \
+        Perror(errno);                                  \
     } while (0)
 
 #define RETURN_IF_IPC_IOCTL_FAILED(retVal)             \
@@ -113,9 +112,9 @@ static void Perror(int msgErrno)
     char errbuf[MAX_ERR_STR];
     int rv = strerror_r(msgErrno, errbuf, sizeof(errbuf));
     if (rv == -1) {
-        printf("[errno:%d]", msgErrno);
+        IPC_LOG_ERROR("[errno:%d]", msgErrno);
     } else {
-        printf("[errnoStr:%s]", errbuf);
+        IPC_LOG_ERROR("[errnoStr:%s]", errbuf);
     }
 }
 
@@ -201,7 +200,7 @@ void ResetLiteIpc()
     pthread_mutex_init(&g_ipcContextMutex, NULL);
     g_ipcCallbackCb.handleId = -1;
     g_ipcCallbackCb.threadWorking = false;
-    pthread_mutex_init(&g_ipcCallbackCb.mutex, NULL);
+    pthread_mutex_init(&(g_ipcCallbackCb.mutex), NULL);
 }
 
 void CloseLiteIpc(IpcContext* context)
@@ -405,7 +404,8 @@ static int32_t CheckIpcIo(IpcIo* data)
     return LITEIPC_OK;
 }
 
-int32_t Transact(const IpcContext* con, SvcIdentity sid, uint32_t code, IpcIo* data, IpcIo* reply, IpcFlag flag, uintptr_t* ptr)
+int32_t SendRequest(const IpcContext* con, SvcIdentity sid, uint32_t code,
+    IpcIo* data, IpcIo* reply, IpcFlag flag, uintptr_t* ptr)
 {
     IpcContext context;
     int32_t ret;
@@ -601,6 +601,7 @@ static void* CallbackBatchHandler(void* arg)
     free(arg);
     if (msg->type == MT_DEATH_NOTIFY) {
         RemoveDeathCallback(handle);
+        FreeBuffer(NULL, msg);
     }
     return NULL;
 }
@@ -1022,4 +1023,14 @@ static void RemoveDeathCallback(uint32_t handle)
         }
     }
     pthread_mutex_unlock(&g_ipcCallbackCb.mutex);
+}
+
+int32_t BinderAcquire(const IpcContext* context, uint32_t handle)
+{
+    return LITEIPC_OK;
+}
+
+int32_t BinderRelease(const IpcContext* context, uint32_t handle)
+{
+    return LITEIPC_OK;
 }

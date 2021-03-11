@@ -14,45 +14,65 @@
 import("//build/lite/config/component/lite_component.gni")
 import("//build/lite/ndk/ndk.gni")
 
-if (ohos_kernel_type == "liteos_a" || ohos_kernel_type == "linux") {
-    shared_library("liteipc_adapter") {
-        sources = [
-            "liteipc/src/liteipc_adapter.c",
-            "liteipc/src/serializer.c",
-        ]
-        cflags = ["-fPIC"]
-        cflags += ["-Wall"]
-        ldflags = ["-lrt"]
-        cflags_cc = cflags
-        public_configs = [":liteipc_external_library_config"]
-        include_dirs = [
-            "liteipc/include",
-            "//third_party/bounds_checking_function/include",
-        ]
-        public_deps = [
-            "//third_party/bounds_checking_function/:libsec_shared",
-        ]
-    }
-    config("liteipc_external_library_config") {
-        include_dirs = [
-            "//foundation/communication/interfaces/kits/ipc_lite",
-            "//utils/native/lite/include",
-        ]
-    }
+if (ohos_kernel_type == "liteos_a") {
+  shared_library("liteipc_adapter") {
+    sources = [
+      "frameworks/liteipc/src/liteipc_adapter.c",
+      "frameworks/liteipc/src/serializer.c",
+    ]
+    cflags = [ "-fPIC" ]
+    cflags += [ "-Wall" ]
+    ldflags = [ "-lrt" ]
+    cflags_cc = cflags
+    public_configs = [ ":liteipc_external_library_config" ]
+    include_dirs = [
+      "frameworks/liteipc/include",
+      "//third_party/bounds_checking_function/include",
+    ]
+    public_deps = [ "//third_party/bounds_checking_function/:libsec_shared" ]
+    deps = [ "//base/hiviewdfx/hilog_lite/frameworks/featured:hilog_shared" ]
+  }
+  config("liteipc_external_library_config") {
+    include_dirs = [
+      "//foundation/communication/ipc_lite/interfaces/kits",
+      "//utils/native/lite/include",
+    ]
+  }
+} else {
+  shared_library("liteipc_adapter") {
+    sources = [
+      "frameworks/liteipc/src/serializer.c",
+      "frameworks/liteipc_linux/src/liteipc_adapter.c",
+    ]
+    public_configs = [ ":liteipc_external_library_config" ]
+    include_dirs = [
+      "frameworks/liteipc_linux/include",
+      "frameworks/liteipc/include",
+      "//third_party/bounds_checking_function/include",
+    ]
+    ldflags = [
+      "-lstdc++",
+      "-lpthread",
+      "-lrt",
+    ]
+    deps = [ "//base/hiviewdfx/hilog_lite/frameworks/featured:hilog_shared" ]
+    public_deps = [ "//third_party/bounds_checking_function/:libsec_shared" ]
+    defines = [ "LITE_LINUX_BINDER_IPC" ]
+  }
+  config("liteipc_external_library_config") {
+    include_dirs = [
+      "//foundation/communication/ipc_lite/interfaces/kits",
+      "//utils/native/lite/include",
+    ]
+  }
 }
 
 lite_component("liteipc") {
-    features = [
-        ":liteipc_adapter",
-    ]
+  features = [ ":liteipc_adapter" ]
 }
 
 ndk_lib("liteipc_ndk") {
-   lib_extension = ".so"
-    deps = [
-        ":liteipc_adapter",
-    ]
-    head_files = [
-        "//foundation/communication/interfaces/kits/ipc_lite"
-    ]
+  lib_extension = ".so"
+  deps = [ ":liteipc_adapter" ]
+  head_files = [ "//foundation/communication/ipc_lite/interfaces/kits" ]
 }

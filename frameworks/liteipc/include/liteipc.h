@@ -58,6 +58,9 @@ typedef struct {
     uint32_t taskID;    /**< filled by kernel, taskId of sender/reciever */
     uint32_t userID;
     uint32_t gid;
+#ifdef __LINUX__
+    void* freeData;
+#endif
 } IpcMsg;
 
 #define SEND (1 << 0)

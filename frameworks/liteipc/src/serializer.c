@@ -14,13 +14,17 @@
  */
 
 #include "serializer.h"
+#include "ipc_log.h"
 #include "securec.h"
-#include "liteipc.h"
-
 #include <stdlib.h>
 #include <string.h>
+#include "liteipc.h"
+#ifdef LITE_LINUX_BINDER_IPC
+#include <pthread.h>
+#include "sys_binder.h"
+#endif
 
-#define MAX_IO_SIZE 2048UL
+#define MAX_IO_SIZE 8192UL
 #define MAX_OBJ_NUM 32UL
 #define MAX_DATA_BUFF_SIZE 65536UL
 
@@ -30,30 +34,37 @@
 #define ALIGN_SZ 4
 #define IPC_IO_ALIGN(sz) (((sz) + ALIGN_SZ - 1) & (~(ALIGN_SZ - 1)))
 
-#define IPC_IO_RETURN_IF_FAIL(value)                                      \
-    do {                                                                  \
-        if (!(value)) {                                                   \
-            printf("IPC_ASSERT failed: %s:%d\n", __FUNCTION__, __LINE__); \
-            if (io != NULL) {                                             \
-                io->flag |= IPC_IO_OVERFLOW;                              \
-            }                                                             \
-            return NULL;                                                  \
-        }                                                                 \
+#define IPC_IO_RETURN_IF_FAIL(value)                                             \
+    do {                                                                         \
+        if (!(value)) {                                                          \
+            IPC_LOG_ERROR("IPC_ASSERT failed: %s:%d\n", __FUNCTION__, __LINE__); \
+            if (io != NULL) {                                                    \
+                io->flag |= IPC_IO_OVERFLOW;                                     \
+            }                                                                    \
+            return NULL;                                                         \
+        }                                                                        \
     } while (0)
 
 static void* IoPop(IpcIo* io, size_t size);
 
 typedef struct {
+#ifndef LITE_LINUX_BINDER_IPC
     NDK_DL_LIST list;
+#endif
     BuffPtr ptr;
     IpcIoPtrFree ptrFree;
 } IpcPtrNode;
+
+extern __thread IpcContext *g_tlsContext;
 
 void IpcIoInit(IpcIo* io, void* buffer, size_t bufferSize, size_t maxobjects)
 {
     if ((io == NULL) || (buffer == NULL) || (bufferSize == 0) || (bufferSize > MAX_IO_SIZE) || (maxobjects > MAX_OBJ_NUM)) {
         return;
     }
+#ifdef LITE_LINUX_BINDER_IPC
+    maxobjects++;
+#endif
     size_t objectsSize = maxobjects * sizeof(size_t);
 
     if (objectsSize > bufferSize) {
@@ -69,6 +80,15 @@ void IpcIoInit(IpcIo* io, void* buffer, size_t bufferSize, size_t maxobjects)
     io->offsetsLeft = maxobjects;
     NDK_ListInit(&io->ptrFreeList);
     io->flag = IPC_IO_INITIALIZED;
+#ifdef LITE_LINUX_BINDER_IPC
+    SvcIdentity svc = {
+        .handle = 0,
+        .token = pthread_self()
+    };
+    uint32_t token = 0;
+    IpcIoPushUint32(io, token);
+    IpcIoPushSvc(io, &svc);
+#endif
 }
 
 void IpcIoInitFromMsg(IpcIo* io, const void* msg)
@@ -110,6 +130,21 @@ static void* IoPush(IpcIo* io, size_t size)
     }
 }
 
+static void* IoPushUnaligned(IpcIo* io, size_t size)
+{
+    IPC_IO_RETURN_IF_FAIL(io != NULL);
+    IPC_IO_RETURN_IF_FAIL(IpcIoAvailable(io));
+    if (size > io->bufferLeft) {
+        io->flag |= IPC_IO_OVERFLOW;
+        return NULL;
+    } else {
+        void* ptr = io->bufferCur;
+        io->bufferCur += size;
+        io->bufferLeft -= size;
+        return ptr;
+    }
+}
+
 static SpecialObj* IoPushSpecObj(IpcIo* io)
 {
     IPC_IO_RETURN_IF_FAIL(io != NULL);
@@ -127,9 +162,30 @@ static SpecialObj* IoPushSpecObj(IpcIo* io)
     }
 }
 
+void IpcIoPushInt32(IpcIo* io, int32_t n)
+{
+    int32_t* ptr = (int32_t*)IoPush(io, sizeof(n));
+    if (ptr != NULL) {
+        *ptr = n;
+    }
+}
+
+void IpcIoPushUint32(IpcIo* io, uint32_t n)
+{
+    uint32_t* ptr = (uint32_t*)IoPush(io, sizeof(n));
+    if (ptr != NULL) {
+        *ptr = n;
+    }
+}
+
 void IpcIoPushChar(IpcIo* io, char c)
 {
-    char* ptr = (char*)IoPush(io, sizeof(c));
+    IpcIoPushInt32(io, (int32_t)c);
+}
+
+void IpcIoPushCharUnaligned(IpcIo* io, char c)
+{
+    char* ptr = (char*)IoPushUnaligned(io, sizeof(c));
     if (ptr != NULL) {
         *ptr = c;
     }
@@ -137,7 +193,12 @@ void IpcIoPushChar(IpcIo* io, char c)
 
 void IpcIoPushBool(IpcIo* io, bool b)
 {
-    bool* ptr = (bool*)IoPush(io, sizeof(b));
+    IpcIoPushInt32(io, (int32_t)b);
+}
+
+void IpcIoPushBoolUnaligned(IpcIo* io, bool b)
+{
+    bool* ptr = (bool*)IoPushUnaligned(io, sizeof(b));
     if (ptr != NULL) {
         *ptr = b;
     }
@@ -161,7 +222,12 @@ void IpcIoPushUintptr(IpcIo* io, uintptr_t uintptr)
 
 void IpcIoPushInt8(IpcIo* io, int8_t n)
 {
-    int8_t* ptr = (int8_t*)IoPush(io, sizeof(n));
+    IpcIoPushInt32(io, (int32_t)n);
+}
+
+void IpcIoPushInt8Unaligned(IpcIo* io, int8_t n)
+{
+    int8_t* ptr = (int8_t*)IoPushUnaligned(io, sizeof(n));
     if (ptr != NULL) {
         *ptr = n;
     }
@@ -169,7 +235,12 @@ void IpcIoPushInt8(IpcIo* io, int8_t n)
 
 void IpcIoPushUint8(IpcIo* io, uint8_t n)
 {
-    uint8_t* ptr = (uint8_t*)IoPush(io, sizeof(n));
+    IpcIoPushUint32(io, (uint32_t)n);
+}
+
+void IpcIoPushUint8Unaligned(IpcIo* io, uint8_t n)
+{
+    uint8_t* ptr = (uint8_t*)IoPushUnaligned(io, sizeof(n));
     if (ptr != NULL) {
         *ptr = n;
     }
@@ -177,7 +248,12 @@ void IpcIoPushUint8(IpcIo* io, uint8_t n)
 
 void IpcIoPushInt16(IpcIo* io, int16_t n)
 {
-    int16_t* ptr = (int16_t*)IoPush(io, sizeof(n));
+    IpcIoPushInt32(io, (int32_t)n);
+}
+
+void IpcIoPushInt16Unaligned(IpcIo* io, int16_t n)
+{
+    int16_t* ptr = (int16_t*)IoPushUnaligned(io, sizeof(n));
     if (ptr != NULL) {
         *ptr = n;
     }
@@ -185,23 +261,12 @@ void IpcIoPushInt16(IpcIo* io, int16_t n)
 
 void IpcIoPushUint16(IpcIo* io, uint16_t n)
 {
-    uint16_t* ptr = (uint16_t*)IoPush(io, sizeof(n));
-    if (ptr != NULL) {
-        *ptr = n;
-    }
+    IpcIoPushUint32(io, (uint32_t)n);
 }
 
-void IpcIoPushInt32(IpcIo* io, int32_t n)
+void IpcIoPushUint16Unaligned(IpcIo* io, uint16_t n)
 {
-    int32_t* ptr = (int32_t*)IoPush(io, sizeof(n));
-    if (ptr != NULL) {
-        *ptr = n;
-    }
-}
-
-void IpcIoPushUint32(IpcIo* io, uint32_t n)
-{
-    uint32_t* ptr = (uint32_t*)IoPush(io, sizeof(n));
+    uint16_t* ptr = (uint16_t*)IoPushUnaligned(io, sizeof(n));
     if (ptr != NULL) {
         *ptr = n;
     }
@@ -223,6 +288,22 @@ void IpcIoPushUint64(IpcIo* io, uint64_t n)
     }
 }
 
+void IpcIoPushFloat(IpcIo* io, float n)
+{
+    float* ptr = (float*)IoPush(io, sizeof(n));
+    if (ptr != NULL) {
+        *ptr = n;
+    }
+}
+
+void IpcIoPushDouble(IpcIo* io, double n)
+{
+    double* ptr = (double*)IoPush(io, sizeof(n));
+    if (ptr != NULL) {
+        *ptr = n;
+    }
+}
+
 void IpcIoPushString(IpcIo* io, const char* cstr)
 {
     unsigned char* str = (unsigned char*)cstr;
@@ -237,7 +318,11 @@ void IpcIoPushString(IpcIo* io, const char* cstr)
         return;
     }
 
+#ifdef LITE_LINUX_BINDER_IPC
+    len = strlen(cstr);
+#else
     len = strnlen(cstr, MAX_IO_SIZE);
+#endif
     if (len == MAX_IO_SIZE) {
         io->flag |= IPC_IO_OVERFLOW;
         return;
@@ -247,7 +332,11 @@ void IpcIoPushString(IpcIo* io, const char* cstr)
     IpcIoPushUint32(io, (uint32_t)len);
     ptr = (uint8_t*)IoPush(io, len + 1);
     if (ptr != NULL) {
-        if (memcpy_s(ptr, len + 1, str, len + 1) != EOK) {
+        if (memset_s(ptr, IPC_IO_ALIGN(len + 1), 0, IPC_IO_ALIGN(len + 1)) != EOK) {
+            io->flag |= IPC_IO_OVERFLOW;
+            return;
+        }
+        if (memcpy_s(ptr, IPC_IO_ALIGN(len + 1), str, len + 1) != EOK) {
             io->flag |= IPC_IO_OVERFLOW;
         }
     }
@@ -281,6 +370,111 @@ void IpcIoPushFd(IpcIo* io, uint32_t fd)
     }
 }
 
+#ifdef LITE_LINUX_BINDER_IPC
+static struct flat_binder_object* IoPushBinderObj(IpcIo* io)
+{
+    IPC_IO_RETURN_IF_FAIL(io != NULL);
+    IPC_IO_RETURN_IF_FAIL(io->offsetsCur != NULL);
+    struct flat_binder_object* ptr = NULL;
+    ptr = IoPush(io, sizeof(struct flat_binder_object));
+    if ((ptr != NULL) && io->offsetsLeft) {
+        io->offsetsLeft--;
+        *(io->offsetsCur) = (char*)ptr - (char*)io->bufferBase;
+        io->offsetsCur++;
+        return ptr;
+    } else {
+        io->flag |= IPC_IO_OVERFLOW;
+        return NULL;
+    }
+}
+
+void IpcIoPushObject(IpcIo* io, uint32_t token, uint32_t cookie)
+{
+    if (io == NULL) {
+        return;
+    }
+    struct flat_binder_object* ptr = IoPushBinderObj(io);
+    if (ptr == NULL) {
+        return;
+    }
+    ptr->flags = 0x7f | FLAT_BINDER_FLAG_ACCEPTS_FDS;
+    ptr->type = BINDER_TYPE_BINDER;
+    ptr->binder = (uintptr_t)token;
+    ptr->cookie = pthread_self();
+}
+
+void IpcIoPushRef(IpcIo* io, uint32_t handle, uint32_t cookie)
+{
+    if (io == NULL) {
+        return;
+    }
+    struct flat_binder_object* ptr = IoPushBinderObj(io);
+    if (ptr == NULL) {
+        return;
+    }
+    ptr->flags = 0x7f | FLAT_BINDER_FLAG_ACCEPTS_FDS;
+    ptr->type = BINDER_TYPE_HANDLE;
+    ptr->handle = handle;
+    ptr->cookie = cookie;
+}
+
+struct flat_binder_object* IpcIoPopRef(IpcIo *io)
+{
+    IPC_IO_RETURN_IF_FAIL(io != NULL);
+    IPC_IO_RETURN_IF_FAIL(io->offsetsCur != NULL);
+    if (io->offsetsLeft == 0) {
+        io->flag |= IPC_IO_OVERFLOW;
+        return NULL;
+    }
+    struct flat_binder_object* obj = (struct flat_binder_object*)IoPop(io, sizeof(struct flat_binder_object));
+    if (obj != NULL) {
+        io->offsetsCur++;
+        io->offsetsLeft--;
+        return obj;
+    }
+    return NULL;
+}
+void IpcIoPushSvc(IpcIo* io, const SvcIdentity* svc)
+{
+    if (io == NULL) {
+        return;
+    }
+    if ((svc->handle == 0) || (svc->handle == MIN_BINDER_HANDLE)) {
+        IpcIoPushObject(io, svc->token, svc->cookie);
+    } else {
+        IpcIoPushRef(io, svc->handle, svc->cookie);
+    }
+    IpcIoPushUint32(io, svc->token);
+}
+
+SvcIdentity* IpcIoPopSvc(IpcIo* io)
+{
+    if (io == NULL) {
+        return NULL;
+    }
+    SvcIdentity* svc = calloc(1, sizeof(SvcIdentity));
+    if (svc == NULL) {
+        return NULL;
+    }
+    struct flat_binder_object* obj = IpcIoPopRef(io);
+    if (obj == NULL) {
+        IPC_LOG_ERROR("IpcIoPopSvc failed: obj is null");
+        return NULL;
+    }
+    svc->token = IpcIoPopUint32(io);
+    if (obj->type == BINDER_TYPE_BINDER) {
+        svc->token = obj->binder;
+        svc->handle = MIN_BINDER_HANDLE;
+        svc->cookie = obj->cookie;
+    } else {
+        svc->handle = obj->handle;
+        svc->cookie = obj->cookie;
+    }
+    svc->ipcContext = g_tlsContext;
+    return svc;
+}
+#else
+static SpecialObj* IoPopSpecObj(IpcIo* io);
 void IpcIoPushSvc(IpcIo* io, const SvcIdentity* svc)
 {
     if (io == NULL) {
@@ -299,26 +493,6 @@ void IpcIoPushSvc(IpcIo* io, const SvcIdentity* svc)
     }
 }
 
-static SpecialObj* IoPopSpecObj(IpcIo* io)
-{
-    IPC_IO_RETURN_IF_FAIL(io != NULL);
-    IPC_IO_RETURN_IF_FAIL(io->offsetsCur != NULL);
-    if ((io->offsetsLeft == 0) || (*(io->offsetsCur) != io->bufferCur - io->bufferBase)) {
-        goto ERROR;
-    }
-
-    SpecialObj* obj = IoPop(io, sizeof(SpecialObj));
-    if (obj != NULL) {
-        io->offsetsCur++;
-        io->offsetsLeft--;
-        return obj;
-    }
-
-ERROR:
-    io->flag |= IPC_IO_OVERFLOW;
-    return NULL;
-}
-
 SvcIdentity* IpcIoPopSvc(IpcIo* io)
 {
     SpecialObj* ptr = IoPopSpecObj(io);
@@ -328,7 +502,9 @@ SvcIdentity* IpcIoPopSvc(IpcIo* io)
         return &(ptr->content.svc);
     }
 }
+#endif
 
+#ifndef LITE_LINUX_BINDER_IPC
 void IpcIoPushDataBuff(IpcIo* io, const BuffPtr* dataBuff)
 {
     if (io == NULL) {
@@ -377,6 +553,19 @@ void IpcIoFreeDataBuff(IpcIo* io)
         free(node);
     }
 }
+#else
+void IpcIoPushDataBuff(IpcIo* io, const BuffPtr* dataBuff)
+{
+}
+
+void IpcIoPushDataBuffWithFree(IpcIo* io, const BuffPtr* dataBuff, IpcIoPtrFree ipcIoFree)
+{
+}
+
+void IpcIoFreeDataBuff(IpcIo* io)
+{
+}
+#endif
 
 static void* IoPop(IpcIo* io, size_t size)
 {
@@ -396,15 +585,64 @@ static void* IoPop(IpcIo* io, size_t size)
     }
 }
 
+static void* IoPopUnaligned(IpcIo* io, size_t size)
+{
+    IPC_IO_RETURN_IF_FAIL(io != NULL);
+    IPC_IO_RETURN_IF_FAIL(IpcIoAvailable(io));
+
+    if (io->bufferLeft < size) {
+        io->bufferLeft = 0;
+        io->flag |= IPC_IO_OVERFLOW;
+        return NULL;
+    } else {
+        void* ptr = io->bufferCur;
+        io->bufferCur += size;
+        io->bufferLeft -= size;
+        return ptr;
+    }
+}
+
+static SpecialObj* IoPopSpecObj(IpcIo* io)
+{
+    IPC_IO_RETURN_IF_FAIL(io != NULL);
+    IPC_IO_RETURN_IF_FAIL(io->offsetsCur != NULL);
+    if ((io->offsetsLeft == 0) || (*(io->offsetsCur) != io->bufferCur - io->bufferBase)) {
+        goto ERROR;
+    }
+
+    SpecialObj* obj = IoPop(io, sizeof(SpecialObj));
+    if (obj != NULL) {
+        io->offsetsCur++;
+        io->offsetsLeft--;
+        return obj;
+    }
+
+ERROR:
+    io->flag |= IPC_IO_OVERFLOW;
+    return NULL;
+}
+
 char IpcIoPopChar(IpcIo* io)
 {
     char* ptr = (char*)IoPop(io, sizeof(*ptr));
     return ptr ? *ptr : 0;
 }
 
+char IpcIoPopCharUnaligned(IpcIo* io)
+{
+    char* ptr = (char*)IoPopUnaligned(io, sizeof(*ptr));
+    return ptr ? *ptr : 0;
+}
+
 bool IpcIoPopBool(IpcIo* io)
 {
     bool* ptr = (bool*)IoPop(io, sizeof(*ptr));
+    return ptr ? *ptr : 0;
+}
+
+bool IpcIoPopBoolUnaligned(IpcIo* io)
+{
+    bool* ptr = (bool*)IoPopUnaligned(io, sizeof(*ptr));
     return ptr ? *ptr : 0;
 }
 
@@ -426,9 +664,21 @@ int8_t IpcIoPopInt8(IpcIo* io)
     return ptr ? *ptr : 0;
 }
 
+int8_t IpcIoPopInt8Unaligned(IpcIo* io)
+{
+    int8_t* ptr = (int8_t*)IoPopUnaligned(io, sizeof(*ptr));
+    return ptr ? *ptr : 0;
+}
+
 uint8_t IpcIoPopUint8(IpcIo* io)
 {
     uint8_t* ptr = (uint8_t*)IoPop(io, sizeof(*ptr));
+    return ptr ? *ptr : 0;
+}
+
+uint8_t IpcIoPopUint8Unaligned(IpcIo* io)
+{
+    uint8_t* ptr = (uint8_t*)IoPopUnaligned(io, sizeof(*ptr));
     return ptr ? *ptr : 0;
 }
 
@@ -438,9 +688,21 @@ int16_t IpcIoPopInt16(IpcIo* io)
     return ptr ? *ptr : 0;
 }
 
+int16_t IpcIoPopInt16Unaligned(IpcIo* io)
+{
+    int16_t* ptr = (int16_t*)IoPopUnaligned(io, sizeof(*ptr));
+    return ptr ? *ptr : 0;
+}
+
 uint16_t IpcIoPopUint16(IpcIo* io)
 {
     uint16_t* ptr = (uint16_t*)IoPop(io, sizeof(*ptr));
+    return ptr ? *ptr : 0;
+}
+
+uint16_t IpcIoPopUint16Unaligned(IpcIo* io)
+{
+    uint16_t* ptr = (uint16_t*)IoPopUnaligned(io, sizeof(*ptr));
     return ptr ? *ptr : 0;
 }
 
@@ -465,6 +727,18 @@ int64_t IpcIoPopInt64(IpcIo* io)
 uint64_t IpcIoPopUint64(IpcIo* io)
 {
     uint64_t* ptr = (uint64_t*)IoPop(io, sizeof(*ptr));
+    return ptr ? *ptr : 0;
+}
+
+float IpcIoPopFloat(IpcIo* io)
+{
+    float* ptr = (float*)IoPop(io, sizeof(*ptr));
+    return ptr ? *ptr : 0;
+}
+
+double IpcIoPopDouble(IpcIo* io)
+{
+    double* ptr = (double*)IoPop(io, sizeof(*ptr));
     return ptr ? *ptr : 0;
 }
 
@@ -503,6 +777,7 @@ uint32_t IpcIoPopFd(IpcIo* io)
     }
 }
 
+#ifndef LITE_LINUX_BINDER_IPC
 BuffPtr* IpcIoPopDataBuff(IpcIo* io)
 {
     SpecialObj* ptr = IoPopSpecObj(io);
@@ -512,3 +787,9 @@ BuffPtr* IpcIoPopDataBuff(IpcIo* io)
         return &(ptr->content.ptr);
     }
 }
+#else
+BuffPtr* IpcIoPopDataBuff(IpcIo* io)
+{
+    return NULL;
+}
+#endif
