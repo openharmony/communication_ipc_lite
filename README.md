@@ -27,7 +27,11 @@ LiteIPC provides the IPC, marshalling, and unmarshalling capabilities. The IPC c
 
 ## Repositories Involved<a name="section1371113476307"></a>
 
-[Intelligent Soft Bus](en-us_topic_0000001051344287.md)
+[Intelligent Soft Bus subsystem](https://gitee.com/openharmony/docs/blob/master/en/readme/intelligent-soft-bus.md)
 
-[communication\_frameworks\_ipc\_lite](https://gitee.com/openharmony/communication_frameworks_ipc_lite)
+**communication\_ipc\_lite**
+
+[communication\_softbus\_lite](https://gitee.com/openharmony/communication_softbus_lite/blob/master/README.md)
+
+[communication\_wifi\_aware](https://gitee.com/openharmony/communication_wifi_aware/blob/master/README.md)
 
