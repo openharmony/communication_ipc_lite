@@ -27,7 +27,11 @@ LiteIPC包括进程间通信能力和序列化反序列化能力，其中进程�
 
 ## 相关仓<a name="section1371113476307"></a>
 
-[分布式通信子系统](zh-cn_topic_0000001051344287.md)
+[分布式软总线子系统](https://gitee.com/openharmony/docs/blob/master/zh-cn/readme/%E5%88%86%E5%B8%83%E5%BC%8F%E8%BD%AF%E6%80%BB%E7%BA%BF%E5%AD%90%E7%B3%BB%E7%BB%9F.md)
 
-[communication\_frameworks\_ipc\_lite](https://gitee.com/openharmony/communication_frameworks_ipc_lite)
+**communication\_ipc\_lite**
+
+[communication\_softbus\_lite](https://gitee.com/openharmony/communication_softbus_lite/blob/master/README_zh.md)
+
+[communication\_wifi\_aware](https://gitee.com/openharmony/communication_wifi_aware/blob/master/README_zh.md)
 
