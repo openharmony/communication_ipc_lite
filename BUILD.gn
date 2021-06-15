@@ -58,6 +58,7 @@ if (ohos_kernel_type == "liteos_a") {
     deps = [ "//base/hiviewdfx/hilog_lite/frameworks/featured:hilog_shared" ]
     public_deps = [ "//third_party/bounds_checking_function/:libsec_shared" ]
     defines = [ "LITE_LINUX_BINDER_IPC" ]
+    configs -= [ "//build/lite/config:clang_opt" ]
   }
   config("liteipc_external_library_config") {
     include_dirs = [
