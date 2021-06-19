@@ -135,7 +135,7 @@ double IpcIoPopDouble(IpcIo* io);
 uint8_t* IpcIoPopString(IpcIo* io, size_t* sz);
 void* IpcIoPopFlatObj(IpcIo* io, uint32_t* size);
 SvcIdentity* IpcIoPopSvc(IpcIo* io);
-uint32_t IpcIoPopFd(IpcIo* io);
+int32_t IpcIoPopFd(IpcIo* io);
 BuffPtr* IpcIoPopDataBuff(IpcIo* io);
 
 #ifdef __cplusplus
