@@ -145,23 +145,6 @@ static void* IoPushUnaligned(IpcIo* io, size_t size)
     }
 }
 
-static SpecialObj* IoPushSpecObj(IpcIo* io)
-{
-    IPC_IO_RETURN_IF_FAIL(io != NULL);
-    IPC_IO_RETURN_IF_FAIL(io->offsetsCur != NULL);
-    SpecialObj* ptr = NULL;
-    ptr = IoPush(io, sizeof(SpecialObj));
-    if ((ptr != NULL) && io->offsetsLeft) {
-        io->offsetsLeft--;
-        *(io->offsetsCur) = (char*)ptr - io->bufferBase;
-        io->offsetsCur++;
-        return ptr;
-    } else {
-        io->flag |= IPC_IO_OVERFLOW;
-        return NULL;
-    }
-}
-
 void IpcIoPushInt32(IpcIo* io, int32_t n)
 {
     int32_t* ptr = (int32_t*)IoPush(io, sizeof(n));
@@ -360,15 +343,7 @@ void IpcIoPushFlatObj(IpcIo* io, const void* obj, uint32_t size)
     }
 }
 
-void IpcIoPushFd(IpcIo* io, uint32_t fd)
-{
-    SpecialObj* ptr = IoPushSpecObj(io);
 
-    if (ptr != NULL) {
-        ptr->type = OBJ_FD;
-        ptr->content.fd = fd;
-    }
-}
 
 #ifdef LITE_LINUX_BINDER_IPC
 static struct flat_binder_object* IoPushBinderObj(IpcIo* io)
@@ -388,6 +363,22 @@ static struct flat_binder_object* IoPushBinderObj(IpcIo* io)
     }
 }
 
+void IpcIoPushFd(IpcIo* io, uint32_t fd)
+{
+   if (io == NULL) {
+        return;
+    }
+    struct flat_binder_object* ptr = IoPushBinderObj(io);
+    if (ptr == NULL) {
+        printf("[%s:%s:%d]IpcIoPushFd failed.\n", __FILE__, __FUNCTION__, __LINE__);
+        return;
+    }
+    ptr->flags = 0x7f | FLAT_BINDER_FLAG_ACCEPTS_FDS;
+    ptr->type = BINDER_TYPE_FD;
+    ptr->binder = 0;
+    ptr->cookie = 1;
+    ptr->handle = fd;
+}
 void IpcIoPushObject(IpcIo* io, uint32_t token, uint32_t cookie)
 {
     if (io == NULL) {
@@ -474,7 +465,53 @@ SvcIdentity* IpcIoPopSvc(IpcIo* io)
     return svc;
 }
 #else
-static SpecialObj* IoPopSpecObj(IpcIo* io);
+static SpecialObj* IoPopSpecObj(IpcIo* io)
+{
+    IPC_IO_RETURN_IF_FAIL(io != NULL);
+    IPC_IO_RETURN_IF_FAIL(io->offsetsCur != NULL);
+    if ((io->offsetsLeft == 0) || (*(io->offsetsCur) != io->bufferCur - io->bufferBase)) {
+        goto ERROR;
+    }
+
+    SpecialObj* obj = IoPop(io, sizeof(SpecialObj));
+    if (obj != NULL) {
+        io->offsetsCur++;
+        io->offsetsLeft--;
+        return obj;
+    }
+
+ERROR:
+    io->flag |= IPC_IO_OVERFLOW;
+    return NULL;
+}
+
+static SpecialObj* IoPushSpecObj(IpcIo* io)
+{
+    IPC_IO_RETURN_IF_FAIL(io != NULL);
+    IPC_IO_RETURN_IF_FAIL(io->offsetsCur != NULL);
+    SpecialObj* ptr = NULL;
+    ptr = IoPush(io, sizeof(SpecialObj));
+    if ((ptr != NULL) && io->offsetsLeft) {
+        io->offsetsLeft--;
+        *(io->offsetsCur) = (char*)ptr - io->bufferBase;
+        io->offsetsCur++;
+        return ptr;
+    } else {
+        io->flag |= IPC_IO_OVERFLOW;
+        return NULL;
+    }
+}
+
+void IpcIoPushFd(IpcIo* io, uint32_t fd)
+{
+    SpecialObj* ptr = IoPushSpecObj(io);
+
+    if (ptr != NULL) {
+        ptr->type = OBJ_FD;
+        ptr->content.fd = fd;
+    }
+}
+
 void IpcIoPushSvc(IpcIo* io, const SvcIdentity* svc)
 {
     if (io == NULL) {
@@ -600,26 +637,6 @@ static void* IoPopUnaligned(IpcIo* io, size_t size)
         io->bufferLeft -= size;
         return ptr;
     }
-}
-
-static SpecialObj* IoPopSpecObj(IpcIo* io)
-{
-    IPC_IO_RETURN_IF_FAIL(io != NULL);
-    IPC_IO_RETURN_IF_FAIL(io->offsetsCur != NULL);
-    if ((io->offsetsLeft == 0) || (*(io->offsetsCur) != io->bufferCur - io->bufferBase)) {
-        goto ERROR;
-    }
-
-    SpecialObj* obj = IoPop(io, sizeof(SpecialObj));
-    if (obj != NULL) {
-        io->offsetsCur++;
-        io->offsetsLeft--;
-        return obj;
-    }
-
-ERROR:
-    io->flag |= IPC_IO_OVERFLOW;
-    return NULL;
 }
 
 char IpcIoPopChar(IpcIo* io)
@@ -767,17 +784,19 @@ void* IpcIoPopFlatObj(IpcIo* io, uint32_t* size)
     return (void*)IoPop(io, *size);
 }
 
-uint32_t IpcIoPopFd(IpcIo* io)
+
+
+#ifndef LITE_LINUX_BINDER_IPC
+int32_t IpcIoPopFd(IpcIo* io)
 {
     SpecialObj* ptr = IoPopSpecObj(io);
     if (ptr == NULL || ptr->type != OBJ_FD) {
-        return 0;
+        return -1;
     } else {
         return ptr->content.fd;
     }
 }
 
-#ifndef LITE_LINUX_BINDER_IPC
 BuffPtr* IpcIoPopDataBuff(IpcIo* io)
 {
     SpecialObj* ptr = IoPopSpecObj(io);
@@ -788,6 +807,23 @@ BuffPtr* IpcIoPopDataBuff(IpcIo* io)
     }
 }
 #else
+int32_t IpcIoPopFd(IpcIo* io)
+{
+    if (io == NULL) {
+        return -1;
+    }
+    struct flat_binder_object* obj = IpcIoPopRef(io);
+    if (obj == NULL) {
+        IPC_LOG_ERROR("IpcIoPopFd failed: obj is null");
+        return -1;
+    }
+    if (obj && obj->type == BINDER_TYPE_FD) {
+        return obj->handle;
+    }
+    IPC_LOG_ERROR("IpcIoPopFd failed: type:%d", obj->type);
+    return -1;
+}
+
 BuffPtr* IpcIoPopDataBuff(IpcIo* io)
 {
     return NULL;
