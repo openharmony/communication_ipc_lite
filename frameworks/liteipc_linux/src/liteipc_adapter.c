@@ -878,7 +878,6 @@ static void CallbackBatchHandler(void* arg)
         FreeBuffer(NULL, msg);
     }
     free(arg);
-    pthread_detach(pthread_self());
     return;
 }
 
