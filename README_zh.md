@@ -23,7 +23,7 @@ LiteIPC为轻量级进程间通信组件，为面向服务的系统服务框架�
 
 ## 说明<a name="section1312121216216"></a>
 
-LiteIPC包括进程间通信能力和序列化反序列化能力，其中进程间通信能力已由samgrlite组件进一步封装，开发者可以通过samgrlite提供的服务相关接口配合LiteIPC提供的序列化、反序列化接口完成进程间服务能力调用，服务开发注册、获取和调用的流程请参考[samgrlite组件README](zh-cn_topic_0000001081604584.md)。
+LiteIPC包括进程间通信能力和序列化反序列化能力，其中进程间通信能力已由samgrlite组件进一步封装，开发者可以通过samgrlite提供的服务相关接口配合LiteIPC提供的序列化、反序列化接口完成进程间服务能力调用，服务开发注册、获取和调用的流程请参考[samgrlite组件README](https://gitee.com/openharmony/distributedschedule_samgr_lite/blob/master/README_zh.md)。
 
 ## 相关仓<a name="section1371113476307"></a>
 
