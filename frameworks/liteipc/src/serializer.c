@@ -391,7 +391,7 @@ void IpcIoPushObject(IpcIo* io, uint32_t token, uint32_t cookie)
     ptr->flags = 0x7f | FLAT_BINDER_FLAG_ACCEPTS_FDS;
     ptr->type = BINDER_TYPE_BINDER;
     ptr->binder = (uintptr_t)token;
-    ptr->cookie = pthread_self();
+    ptr->cookie = ptr->binder;
 }
 
 void IpcIoPushRef(IpcIo* io, uint32_t handle, uint32_t cookie)
