@@ -430,14 +430,13 @@ static void HandleTransaction(const IpcContext *context, const struct binder_tra
         return;
     }
     g_handle = remote->handle;
-    free(remote);
-    remote = NULL;
     data->data = io.bufferCur;
     data->offsets = io.offsetsCur;
     data->dataSz = io.bufferLeft;
     data->spObjNum = io.offsetsLeft;
     if (IsValidCB(data)) {
         TryCallBack(context, data, &io, NULL);
+        free(remote);
         return;
     }
     data->target.token = token;
@@ -445,10 +444,12 @@ static void HandleTransaction(const IpcContext *context, const struct binder_tra
     if (GetFuncPair(&pair, txn->cookie)) {
         pair.func(context, data, &io, pair.argv);
     } else if (GetFuncPair(&pair, g_samgrId)) {
+        data->target.handle = remote->handle;
         pair.func(context, data, &io, pair.argv);
     } else {
         LOG(ERROR, "BR_TRANSACTION should not happen!");
     }
+    free(remote);
 }
 
 static void HandleReply(IpcIo* bio, const struct binder_transaction_data *txn, uintptr_t* buffer)
