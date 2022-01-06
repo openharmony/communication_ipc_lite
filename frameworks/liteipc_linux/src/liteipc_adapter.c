@@ -765,8 +765,8 @@ int32_t SendRequest(const IpcContext *context, SvcIdentity sid, uint32_t code,
         return ret;
     }
     buf.cmd = BC_TRANSACTION;
+    IpcIo tempIo;
     if (data == NULL) {
-        IpcIo tempIo;
         data = &tempIo;
         uint8_t tmpData[IPC_IO_DATA_TEMP];
         IpcIoInit(data, tmpData, IPC_IO_DATA_TEMP, 0);
@@ -851,8 +851,8 @@ int32_t SendReply(const IpcContext* context, void* ipcMsg, IpcIo* reply)
     struct TransactData buf = {0};
     buf.cmd = BC_REPLY;
     SvcIdentity sid = {0};
+    IpcIo tempIo;
     if (reply == NULL) {
-        IpcIo tempIo;
         reply = &tempIo;
         uint8_t tmpData[IPC_IO_DATA_TEMP];
         IpcIoInit(reply, tmpData, IPC_IO_DATA_TEMP, 0);
