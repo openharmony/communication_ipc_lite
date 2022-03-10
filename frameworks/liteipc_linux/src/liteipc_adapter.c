@@ -454,6 +454,9 @@ static void HandleTransaction(const IpcContext *context, const struct binder_tra
 
 static void HandleReply(IpcIo* bio, const struct binder_transaction_data *txn, uintptr_t* buffer)
 {
+    if (buffer == NULL) {
+        return;
+    }
     if (bio == NULL) {
         *buffer = 0;
         return;
@@ -664,7 +667,6 @@ static void* BinderThreadRoutine(void *argv)
     struct BinderThreadDesc *btd = (struct BinderThreadDesc *)argv;
     BinderThreadLoop(btd->context, btd->func, btd->argv);
     free(argv);
-    argv = NULL;
     return NULL;
 }
 
@@ -833,11 +835,15 @@ int32_t SendReply(const IpcContext* context, void* ipcMsg, IpcIo* reply)
         size_t objectsSize = tmp.offsetsLeft * sizeof(size_t);
         (*g_tlsReply)->bufferCur = (*g_tlsReply)->bufferBase = (char*)g_tlsReplyData + objectsSize;
         (*g_tlsReply)->offsetsCur = (*g_tlsReply)->offsetsBase = (size_t*)g_tlsReplyData;
-        memcpy_s((*g_tlsReply)->bufferBase, IPC_IO_DATA_MAX, tmp.bufferBase, tmp.bufferLeft);
-        memcpy_s((*g_tlsReply)->offsetsBase, objectsSize, tmp.offsetsBase, objectsSize);
+        if (memcpy_s((*g_tlsReply)->bufferBase, IPC_IO_DATA_MAX, tmp.bufferBase, tmp.bufferLeft) != EOK) {
+            return LITEIPC_EINTNL;
+        }
+        if (memcpy_s((*g_tlsReply)->offsetsBase, objectsSize, tmp.offsetsBase, objectsSize) != EOK) {
+            return LITEIPC_EINTNL;
+        }
         (*g_tlsReply)->bufferLeft = tmp.bufferLeft;
         (*g_tlsReply)->offsetsLeft = tmp.offsetsLeft;
-        (*g_tlsReply)->flag = reply->flag;
+        (*g_tlsReply)->flag = (reply == NULL) ? 1 : reply->flag;
 
         IpcIoPopUint32(*g_tlsReply);
         SvcIdentity *sid = IpcIoPopSvc(*g_tlsReply);
@@ -1154,7 +1160,7 @@ int32_t UnregisterDeathCallback(SvcIdentity sid, uint32_t cbId)
     Testament* node = NULL;
     Testament* next = NULL;
     if (cbId >= MAX_DEATHCB_PER_SVC) {
-        LOG(ERROR, "Wrong cbId:%d.", cbId);
+        LOG(ERROR, "Wrong cbId:%u.", cbId);
         return LITEIPC_EINVAL;
     }
     if (pthread_mutex_lock(&g_ipcCallbackCb.mutex) != 0) {
