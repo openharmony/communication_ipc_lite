@@ -1161,7 +1161,7 @@ int32_t UnregisterDeathCallback(SvcIdentity sid, uint32_t cbId)
     Testament* node = NULL;
     Testament* next = NULL;
     if (cbId >= MAX_DEATHCB_PER_SVC) {
-        LOG(ERROR, "Wrong cbId:%d.", cbId);
+        LOG(ERROR, "Wrong cbId:%u.", cbId);
         return LITEIPC_EINVAL;
     }
     if (pthread_mutex_lock(&g_ipcCallbackCb.mutex) != 0) {
