@@ -821,7 +821,7 @@ int32_t IpcIoPopFd(IpcIo* io)
     if (obj && obj->type == BINDER_TYPE_FD) {
         return obj->handle;
     }
-    IPC_LOG_ERROR("IpcIoPopFd failed: type:%d", obj->type);
+    IPC_LOG_ERROR("IpcIoPopFd failed");
     return -1;
 }
 
