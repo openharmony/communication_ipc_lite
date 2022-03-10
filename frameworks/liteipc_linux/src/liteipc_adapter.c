@@ -667,7 +667,6 @@ static void* BinderThreadRoutine(void *argv)
     struct BinderThreadDesc *btd = (struct BinderThreadDesc *)argv;
     BinderThreadLoop(btd->context, btd->func, btd->argv);
     free(argv);
-    argv = NULL;
     return NULL;
 }
 
