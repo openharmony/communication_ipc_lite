@@ -791,7 +791,10 @@ int32_t StartIpcCbTimer(uint32_t mode, uint32_t timeoutMs, AnonymousApi* node, t
     }
 
     /* Create the timer */
-    memset_s(&sev, sizeof(struct sigevent), 0, sizeof(struct sigevent));
+    if (memset_s(&sev, sizeof(struct sigevent), 0, sizeof(struct sigevent)) != EOK) {
+        LOG(ERROR, "memset_s failed.");
+        return LITEIPC_EINTNL;
+    }
     sev.sigev_notify = SIGEV_SIGNAL;
     sev.sigev_signo = SIGUSR1;
     sev.sigev_value.sival_ptr = node;

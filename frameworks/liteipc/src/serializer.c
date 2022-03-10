@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Huawei Device Co., Ltd.
+ * Copyright (c) 2022 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -450,6 +450,7 @@ SvcIdentity* IpcIoPopSvc(IpcIo* io)
     struct flat_binder_object* obj = IpcIoPopRef(io);
     if (obj == NULL) {
         IPC_LOG_ERROR("IpcIoPopSvc failed: obj is null");
+        free(svc);
         return NULL;
     }
     svc->token = IpcIoPopUint32(io);
@@ -820,7 +821,7 @@ int32_t IpcIoPopFd(IpcIo* io)
     if (obj && obj->type == BINDER_TYPE_FD) {
         return obj->handle;
     }
-    IPC_LOG_ERROR("IpcIoPopFd failed: type:%d", obj->type);
+    IPC_LOG_ERROR("IpcIoPopFd failed");
     return -1;
 }
 
