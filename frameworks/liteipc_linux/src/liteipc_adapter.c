@@ -454,6 +454,9 @@ static void HandleTransaction(const IpcContext *context, const struct binder_tra
 
 static void HandleReply(IpcIo* bio, const struct binder_transaction_data *txn, uintptr_t* buffer)
 {
+    if (buffer == NULL) {
+        return;
+    }
     if (bio == NULL) {
         *buffer = 0;
         return;
@@ -833,8 +836,12 @@ int32_t SendReply(const IpcContext* context, void* ipcMsg, IpcIo* reply)
         size_t objectsSize = tmp.offsetsLeft * sizeof(size_t);
         (*g_tlsReply)->bufferCur = (*g_tlsReply)->bufferBase = (char*)g_tlsReplyData + objectsSize;
         (*g_tlsReply)->offsetsCur = (*g_tlsReply)->offsetsBase = (size_t*)g_tlsReplyData;
-        memcpy_s((*g_tlsReply)->bufferBase, IPC_IO_DATA_MAX, tmp.bufferBase, tmp.bufferLeft);
-        memcpy_s((*g_tlsReply)->offsetsBase, objectsSize, tmp.offsetsBase, objectsSize);
+        if (memcpy_s((*g_tlsReply)->bufferBase, IPC_IO_DATA_MAX, tmp.bufferBase, tmp.bufferLeft) != EOK) {
+            return LITEIPC_EINTNL;
+        }
+        if (memcpy_s((*g_tlsReply)->offsetsBase, objectsSize, tmp.offsetsBase, objectsSize) != EOK) {
+            return LITEIPC_EINTNL;
+        }
         (*g_tlsReply)->bufferLeft = tmp.bufferLeft;
         (*g_tlsReply)->offsetsLeft = tmp.offsetsLeft;
         (*g_tlsReply)->flag = reply->flag;
