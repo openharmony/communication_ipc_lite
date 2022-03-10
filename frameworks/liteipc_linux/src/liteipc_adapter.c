@@ -844,7 +844,7 @@ int32_t SendReply(const IpcContext* context, void* ipcMsg, IpcIo* reply)
         }
         (*g_tlsReply)->bufferLeft = tmp.bufferLeft;
         (*g_tlsReply)->offsetsLeft = tmp.offsetsLeft;
-        (*g_tlsReply)->flag = reply->flag;
+        (*g_tlsReply)->flag = (reply == NULL) ? 1 : reply->flag;
 
         IpcIoPopUint32(*g_tlsReply);
         SvcIdentity *sid = IpcIoPopSvc(*g_tlsReply);
