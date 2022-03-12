@@ -826,6 +826,7 @@ int32_t IpcIoPopFd(IpcIo* io)
 
 BuffPtr* IpcIoPopDataBuff(IpcIo* io)
 {
+    (void)io;
     return NULL;
 }
 #endif
