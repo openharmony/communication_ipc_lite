@@ -514,6 +514,7 @@ SEND_EXIT:
 
 int32_t FreeBuffer(const IpcContext* con, void* ptr)
 {
+    (void)con;
     IpcContext context;
     int32_t ret;
 
@@ -736,7 +737,7 @@ ERROR_MALLOC:
     return NULL;
 }
 
-static int32_t StartCallbackDispatch()
+static int32_t StartCallbackDispatch(void)
 {
     pthread_attr_t threadAttr;
     pthread_attr_init(&threadAttr);
