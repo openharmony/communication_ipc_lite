@@ -321,6 +321,8 @@ int32_t SetSaManager(const IpcContext* context, size_t maxMsgSize)
 
 int32_t AddServiceAccess(SvcIdentity sid, pid_t pid)
 {
+    (void)sid;
+    (void)pid;
     return LITEIPC_OK;
 }
 
@@ -354,7 +356,7 @@ static int BinderWrite(const IpcContext *context, void *data, size_t len)
 
     bwr.write_size = len;
     bwr.write_consumed = 0;
-    bwr.write_buffer = (uintptr_t) data;
+    bwr.write_buffer = (uintptr_t)data;
     bwr.read_size = 0;
     bwr.read_consumed = 0;
     bwr.read_buffer = 0;
@@ -402,6 +404,8 @@ static void HandleSpawnLooper(const IpcContext *context, const struct FuncPair *
     if (btd == NULL) {
         return;
     }
+    (void)memset_s(btd, sizeof(struct BinderThreadDesc), 0, sizeof(struct BinderThreadDesc));
+    
     btd->context = context;
     btd->func = funcPair->func;
     btd->argv = funcPair->argv;
@@ -1026,6 +1030,8 @@ int32_t RegisterIpcCallback(IpcMsgHandler func, uint32_t mode, uint32_t timeoutM
         ret = LITEIPC_EINTNL;
         goto ERROR;
     }
+    (void)memset_s(node, sizeof(AnonymousApi), 0, sizeof(AnonymousApi));
+
     node->token = (uint32_t)(uintptr_t)node;
     node->hdlerPair.usedFlag = true;
     node->hdlerPair.hdler = func;
