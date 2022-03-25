@@ -635,6 +635,9 @@ int32_t StartLoop(const IpcContext* context, IpcMsgHandler func, void* arg)
 
 static void BinderThreadLoop(const IpcContext* context, IpcMsgHandler func, void* arg)
 {
+    if (context == NULL || arg == NULL) {
+        return;
+    }
     struct binder_write_read bwr = {0};
     uint32_t readbuf[READ_BUFFER_SIZE] = {0};
     struct FuncPair funcPair = {0};
@@ -984,7 +987,9 @@ static void* CallbackDispatch(void* arg)
         return (void*)(intptr_t)LITEIPC_EINTNL;
     }
     g_ipcCallbackCb.threadWorking = true;
-    StartLoop(ipcContext, (IpcMsgHandler)TryCallBack, NULL);
+    if (StartLoop(ipcContext, (IpcMsgHandler)TryCallBack, NULL) != LITEIPC_OK) {
+        return (void*)(intptr_t)LITEIPC_EINTNL;
+    }
     return (void*)(intptr_t)LITEIPC_OK;
 }
 
