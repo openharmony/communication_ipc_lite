@@ -772,7 +772,7 @@ static void TimeoutHandler(int signo, void *arg)
         .handle = g_ipcCallbackCb.handleId,
         .token = node->token
     };
-    UnregisterIpcCallback(sid);
+    (void)UnregisterIpcCallback(sid);
 }
 
 int32_t StartIpcCbTimer(uint32_t mode, uint32_t timeoutMs, AnonymousApi* node, timer_t* timerId)
