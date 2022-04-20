@@ -1,0 +1,41 @@
+{
+    "name": "@openharmony/ipc_lite",
+    "version": "3.1.0",
+    "description": "ipc_lite",
+    "publishAs": "code-segment",
+    "scripts": {
+      "install": "DEST_PATH=${DEP_BUNDLE_BASE}/foundation/communication/ipc_lite && mkdir -p $DEST_PATH && cp -r ./* $DEST_PATH"
+    },
+    "author": {},
+    "repository": "",
+    "license": "Apache License 2.0",
+    "component": {
+      "name": "ipc_lite",
+      "subsystem": "communication",
+      "adapted_system_type": [
+        "small"
+      ],
+      "features": [
+      ],
+      "rom": "",
+      "ram": "",
+      "deps": {
+        "components": [
+          "libhilog",
+          "utils_base"
+        ],
+        "third_party": [
+          "bounds_checking_function"
+        ]
+      },
+      "build": {
+        "sub_component": [
+          "//foundation/communication/ipc_lite:liteipc_adapter"
+        ],
+        "inner_kits": [
+        ],
+        "test": [
+        ]
+      }
+    }
+  }
