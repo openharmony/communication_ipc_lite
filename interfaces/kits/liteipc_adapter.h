@@ -52,7 +52,7 @@ enum IpcErr {
     LITEIPC_EINVAL = -10,  /* Invalid argument */
     LITEIPC_EBADF,         /* Bad file descriptor */
     LITEIPC_ENOMEM,        /* No memory */
-    LITEIPC_ENOENT,        /* Service is not avaliable; For example, Transact on a timeout ipc callback */
+    LITEIPC_ENOENT,        /* Service is not available; For example, Transact on a timeout ipc callback */
     LITEIPC_EINTNL,        /* Internal error, check strerrno in log */
     LITEIPC_OK = 0,
 };
