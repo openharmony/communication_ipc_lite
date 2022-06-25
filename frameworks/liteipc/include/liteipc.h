@@ -54,8 +54,8 @@ typedef struct {
     void* data;
     uint32_t spObjNum;
     void* offsets;
-    uint32_t processID; /**< filled by kernel, processId of sender/reciever */
-    uint32_t taskID;    /**< filled by kernel, taskId of sender/reciever */
+    uint32_t processID; /**< filled by kernel, processId of sender/receiver */
+    uint32_t taskID;    /**< filled by kernel, taskId of sender/receiver */
     uint32_t userID;
     uint32_t gid;
 #ifdef __LINUX__
